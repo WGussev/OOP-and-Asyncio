@@ -1,2 +1,2 @@
 # OOP-and-Asyncio
-Assignments from https://www.coursera.org/learn/diving-in-python
+Assignment from https://www.coursera.org/learn/diving-in-python
