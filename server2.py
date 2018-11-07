@@ -1,10 +1,39 @@
 import asyncio
 from server import read_msg
 
+def metric_to_str(key, mem_i):
+    mem_sorted = sorted(mem_i, key=lambda x: float(x[1]))
+    mem_strs = [' '.join([key, str(item[0]), str(int(item[1].split('.')[0]))]) for item in mem_sorted]
+    return '\n'.join(mem_strs)
 
-def run_server(host, port):
-    pass
 
+def read_msg(msg, mem):
+
+    # format: "put server.metric metric_value timestamp\n"
+    # format: "get key\n"
+
+    prefix, metrics = msg.split(' ', 1)
+
+    if prefix == 'put':
+        name, metric, timestamp = metrics.strip('\n').split()
+        if not (name in mem):
+            mem[name] = []
+        mem[name].append((metric, timestamp))
+        response = 'ok\n\n'
+    elif prefix == 'get':
+        name = metrics.strip('\n')
+        if name == '*':
+            resp = []
+            for name in mem.keys():
+                resp.append(metric_to_str(name, mem[name]))
+            resp = '\n'.join(resp)
+        else:
+            resp = metric_to_str(name, mem[name])
+        response = 'ok\n'+resp+'\n'
+    else:
+        response = 'error\nwrong_command\n\n'
+
+    return response
 
 class MsgHandler:
 
@@ -18,35 +47,19 @@ class MsgHandler:
         await writer.drain()
         writer.close()
 
-loop = asyncio.get_event_loop()
-coro = asyncio.start_server()
 
+def run_server(host, port):
+    mem = {}
+    msg_handler = MsgHandler(mem)
+    loop = asyncio.get_event_loop()
+    coro = asyncio.start_server(msg_handler, host, port, loop=loop)
 
-# class MsgHandlerProtocol(asyncio.Protocol):
-#
-#     def __init__(self, mem)
-#         super.__init__()
-#         self.mem = mem
-#
-#     def connection_made(self, transport):
-#         self.transport = transport
-#
-#     def data_received(self, data):
-#         resp = read_msg(data.decode(), self.mem)
-#         self.transport.write(resp.encode())
-#
-#
-# loop = asyncio.get_event_loop()
-# coro = loop.create_server(MsgHandlerProtocol, '127.0.0.1', 8181)
-#
-# server = loop.run_until_complete(coro)
-#
-# try:
-#     loop.run_forever()
-# except KeyboardInterrupt:
-#     pass
-#
-# server.close()
-# loop.run_until_complete(server.wait_closed())
-#
-# loop.close()
+    server = loop.run_until_complete(coro)
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+
+    server.close()
+    loop.run_until_complete(server.wait_closed())
+    loop.close()
